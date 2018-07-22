@@ -1,39 +1,41 @@
 (ns kafka-utils.core
   (:require [clojure.core.async :as async]
             [datascript.core :as d]
-            [franzy.common.configuration.codec :as franzy.config])
+            [franzy.common.configuration.codec :as franzy.config]
+            [clojure.core.async.impl.protocols :refer [closed?]])
   (:import (org.apache.kafka.clients.consumer KafkaConsumer ConsumerRecord)
            (java.util UUID)))
 
 
 (defn ->chan
-  ([consumer] (->chan consumer 100))
-  ([^KafkaConsumer consumer poll-interval]
+  ([consumer] (->chan consumer 500))
+  ([^KafkaConsumer consumer poll-timeout]
    (let [out-chan (async/chan)]
-     (async/go
-       (while true
-         (try
-           (doseq [^ConsumerRecord r (.poll consumer poll-interval)]
-             (let [record-value (.value r)
-                   value-map (if (string? record-value)
-                               {:kafka.record/value record-value}
-                               record-value)
-                   clj-record (merge {:kafka.record/key       (.key r)
-                                      :kafka.record/timestamp (.timestamp r)
-                                      :kafka.record/offset    (.offset r)
-                                      :kafka.record/topic     (.topic r)}
-                                     value-map)]
-               (when-not (async/>! out-chan clj-record)
-                 (.close consumer))))
-           (catch Exception e
-             (async/close! out-chan)
-             (throw e)))))
+     (try
+       (async/go-loop [rs (.poll consumer poll-timeout)]
+         (doseq [^ConsumerRecord r rs]
+           (let [record-value (.value r)
+                 value-map (if (string? record-value)
+                             {:kafka.record/value record-value}
+                             record-value)
+                 clj-record (merge {:kafka.record/key       (.key r)
+                                    :kafka.record/timestamp (.timestamp r)
+                                    :kafka.record/offset    (.offset r)
+                                    :kafka.record/topic     (.topic r)}
+                                   value-map)]
+             (async/>! out-chan clj-record)))
+         (if-not (closed? out-chan)
+           (recur (.poll consumer poll-timeout))
+           (.close consumer)))
+       (catch Exception e
+         (async/close! out-chan)
+         (throw e)))
      out-chan)))
 
 
 (defn read-from-beginning [topic-name bootstrap-servers key-deserializer value-deserializer]
   (let [consumer-config (franzy.config/encode {:bootstrap.servers bootstrap-servers
-                                              :group.id           (str (UUID/randomUUID))})
+                                               :group.id          (str (UUID/randomUUID))})
         consumer (KafkaConsumer. consumer-config key-deserializer value-deserializer)]
     (.subscribe consumer [topic-name])
     ;; need to poll for consumer to be assigned partitions
@@ -44,7 +46,7 @@
 
 (defn read-from-end [topic-name bootstrap-servers key-deserializer value-deserializer]
   (let [consumer-config (franzy.config/encode {:bootstrap.servers bootstrap-servers
-                                              :group.id           (str (UUID/randomUUID))})
+                                               :group.id          (str (UUID/randomUUID))})
         consumer (KafkaConsumer. consumer-config key-deserializer value-deserializer)]
     (.subscribe consumer [topic-name])
     (->chan consumer)))
