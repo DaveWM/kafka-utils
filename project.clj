@@ -1,6 +1,6 @@
 (defproject kafka-utils "0.1.0"
   :description "utils for querying kafka topics"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/DaveWM/kafka-utils"
   :license {:name "GPL V3"
             :url "https://www.gnu.org/licenses/gpl-3.0.en.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
