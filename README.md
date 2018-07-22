@@ -1,10 +1,11 @@
 # kafka-utils
+[![Clojars Project](https://img.shields.io/clojars/v/kafka-utils.svg)](https://clojars.org/kafka-utils)
 
 Utilities to make querying the data in kafka topics easier.
 
 ## Usage
 
-1. Add `[kafka.utils "0.0.1"]` as a dependency.
+1. Add `[kafka.utils "0.1.0"]` as a dependency.
 2. Start up your repl, and call ``
 3. Start up your repl, and enter these commands:
 
