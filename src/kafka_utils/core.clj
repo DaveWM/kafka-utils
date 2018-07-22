@@ -92,3 +92,9 @@
        last
        first
        (d/entity db)))
+
+
+(defn apply-transducer [xf in-chan]
+  (let [out-chan (async/chan)]
+    (async/pipeline 1 out-chan xf in-chan)
+    out-chan))
