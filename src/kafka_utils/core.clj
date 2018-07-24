@@ -21,7 +21,8 @@
                  clj-record (merge {:kafka.record/key       (.key r)
                                     :kafka.record/timestamp (.timestamp r)
                                     :kafka.record/offset    (.offset r)
-                                    :kafka.record/topic     (.topic r)}
+                                    :kafka.record/topic     (.topic r)
+                                    :kafka.record/partition (.partition r)}
                                    value-map)]
              (async/>! out-chan clj-record)))
          (if-not (closed? out-chan)
@@ -56,6 +57,8 @@
   [chan db-conn]
   (async/go-loop [record (async/<! chan)]
     (d/transact! db-conn [(->> (assoc record :db/id (Math/abs (hash (str (:kafka.record/offset record)
+                                                                         "::"
+                                                                         (:kafka.record/partition record)
                                                                          "::"
                                                                          (:kafka.record/topic record)))))
                                (remove (fn [[k v]] (nil? v)))
