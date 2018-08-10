@@ -8,7 +8,7 @@
 
 
 (defn ->chan
-  "Reads messages from a Kafka topic, using the provided consumer, into a core.async channel.
+  "Reads messages from a Kafka topic, using the provided consumer, into a core.async channel. Returns the channel.
 
   Each message in the topic will be put on the channel individually.
 
@@ -17,7 +17,9 @@
     - :kafka.record/timestamp
     - :kafka.record/offset
     - :kafka.record/topic
-    - :kafka.record/partition"
+    - :kafka.record/partition
+
+  Closing the returned channel will also close the consumer."
   ([consumer] (->chan consumer 500))
   ([^KafkaConsumer consumer poll-timeout]
    (let [out-chan (async/chan)]
