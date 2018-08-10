@@ -8,4 +8,6 @@
                  [org.clojure/core.async "0.4.474"]
                  [datascript "0.16.6"]
                  [ymilky/franzy "0.0.1"]
-                 [ymilky/franzy-json "0.0.1"]])
+                 [ymilky/franzy-json "0.0.1"]]
+  :plugins [[lein-codox "0.10.4"]]
+  :codox {:output-path "codox"})

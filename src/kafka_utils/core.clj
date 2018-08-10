@@ -8,6 +8,16 @@
 
 
 (defn ->chan
+  "Reads messages from a Kafka topic, using the provided consumer, into a core.async channel.
+
+  Each message in the topic will be put on the channel individually.
+
+  Each message is augmented with these keys:
+    - :kafka.record/key
+    - :kafka.record/timestamp
+    - :kafka.record/offset
+    - :kafka.record/topic
+    - :kafka.record/partition"
   ([consumer] (->chan consumer 500))
   ([^KafkaConsumer consumer poll-timeout]
    (let [out-chan (async/chan)]
@@ -34,7 +44,9 @@
      out-chan)))
 
 
-(defn read-from-beginning [topic-name bootstrap-servers key-deserializer value-deserializer]
+(defn read-from-beginning
+  "Reads a topic from the beginning (i.e. offset 0) of a topic into a core.async channel"
+  [topic-name bootstrap-servers key-deserializer value-deserializer]
   (let [consumer-config (franzy.config/encode {:bootstrap.servers bootstrap-servers
                                                :group.id          (str (UUID/randomUUID))})
         consumer (KafkaConsumer. consumer-config key-deserializer value-deserializer)]
@@ -45,7 +57,9 @@
     (->chan consumer)))
 
 
-(defn read-from-end [topic-name bootstrap-servers key-deserializer value-deserializer]
+(defn read-from-end
+  "Reads a topic from the end (i.e. the latest offset) of a topic into a core.async channel."
+  [topic-name bootstrap-servers key-deserializer value-deserializer]
   (let [consumer-config (franzy.config/encode {:bootstrap.servers bootstrap-servers
                                                :group.id          (str (UUID/randomUUID))})
         consumer (KafkaConsumer. consumer-config key-deserializer value-deserializer)]
@@ -54,6 +68,9 @@
 
 
 (defn sink-to-db!
+  "Takes each message on a core.async channel, and inserts it into the provided datascript db.
+
+  The datascript id of each message is calculated from the :kafka.record/offset, :kafka.record/partition and :kafka.record/topic keys."
   [chan db-conn]
   (async/go-loop [record (async/<! chan)]
     (d/transact! db-conn [(->> (assoc record :db/id (Math/abs (hash (str (:kafka.record/offset record)
@@ -67,7 +84,13 @@
       (recur next))))
 
 
-(defn latest-only [db id-attr]
+(defn latest-only
+  "Returns a db containing only the latest message for each entity. This is useful for changelog topics.
+
+  Entities are determined using the 'id-attr' parameter.
+
+  The offset is used to determine which message is the latest one."
+  [db id-attr]
   (let [latest-updates (->> db
                             (d/q `[:find ?e ?offset ?id
                                    :where [?e :kafka.record/offset ?offset]
@@ -83,21 +106,22 @@
                    (contains? latest-updates (:e datom))))))
 
 
-(defn latest-update-before [db timestamp id id-attr updated-at-attr]
-  (->> (d/q `[:find ?e ?t
-              :in $ ?before
-              :where
-              [$ ?e ~updated-at-attr ?t]
-              [$ ?e ~id-attr ~id]
-              [(< ?t ?before)]]
-            db timestamp)
-       (sort-by second)
-       last
-       first
-       (d/entity db)))
+(defn as-of
+  "Returns the state of the db at the given time, as determined by the Kafka record timestamp"
+  [db timestamp]
+  (let [valid-entities (->> (d/q '[:find ?e
+                                   :in $ ?before
+                                   :where [$ ?e :kafka.record/timestamp ?t]
+                                   [(< ?t ?before)]]
+                                 db timestamp)
+                            set)]
+    (d/filter db (fn [_ datom]
+                   (contains? valid-entities (:e datom))))))
 
 
-(defn apply-transducer [xf in-chan]
+(defn apply-transducer
+  "Takes a channel, applies a transducer to it, and returns the new channel. The original channel is not modified."
+  [xf in-chan]
   (let [out-chan (async/chan)]
     (async/pipeline 1 out-chan xf in-chan)
     out-chan))

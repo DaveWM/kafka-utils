@@ -3,6 +3,8 @@
 
 The aim of this library is to make it easier to query data in Kafka topics.
 
+[Full Documentation](https://davewm.github.io/kafka-utils/)
+
 ## Why?
 
 When working with Kafka, you often want to query the data in a topic (or multiple topics).
@@ -37,12 +39,14 @@ However, there are some caveats:
 
 ## How?
 
-The basic flow is:
+The easiest way to use this library is:
 
 1. Call `read-from-beginning` to get a core.async channel of all the messages in a topic.
 2. Create a datascript DB by calling `datascript.core/create-conn`.
 2. Call `sink-to-db!` to sink the channel to the DB.
 4. Wait for the messages to be loaded into the DB (should take less than a minute)
+
+See [the docs](https://davewm.github.io/kafka-utils/) for more info.
 
 ## Usage
 
