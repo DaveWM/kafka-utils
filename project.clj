@@ -1,4 +1,4 @@
-(defproject kafka-utils "0.1.1"
+(defproject kafka-utils "0.1.2-SNAPSHOT"
   :description "utils for querying kafka topics"
   :url "https://github.com/DaveWM/kafka-utils"
   :license {:name "GPL V3"
